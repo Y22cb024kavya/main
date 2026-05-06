@@ -112,8 +112,6 @@ class AppwriteService extends ChangeNotifier {
     try {
       await account.createOAuth2Session(provider: OAuthProvider.google);
       await cacheCurrentUser();
-      await ensureCurrentUserProfile();
-
       notifyListeners();
       return true;
     } catch (e) {
@@ -126,8 +124,6 @@ class AppwriteService extends ChangeNotifier {
     try {
       await account.createOAuth2Session(provider: OAuthProvider.apple);
       await cacheCurrentUser();
-      await ensureCurrentUserProfile();
-
       notifyListeners();
       return true;
     } catch (e) {

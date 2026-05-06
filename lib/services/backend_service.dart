@@ -361,6 +361,215 @@ class BackendService {
     }
   }
 
+  // Saved boards persisted through AHVI backend/Appwrite/R2.
+  String _firstNonEmptyString(Iterable<dynamic> values) {
+    for (final value in values) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
+
+  List<String> _extractItemIds(List<Map<String, dynamic>> items) {
+    return items
+        .map(
+          (item) =>
+              item[r'$id'] ??
+              item['document_id'] ??
+              item['documentId'] ??
+              item['id'] ??
+              item['item_id'] ??
+              item['itemId'] ??
+              '',
+        )
+        .map((id) => id.toString().trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  String _extractImageUrlFromItems(List<Map<String, dynamic>> items) {
+    for (final item in items) {
+      final url = _firstNonEmptyString([
+        item['imageUrl'],
+        item['image_url'],
+        item['image'],
+        item['url'],
+        item['publicUrl'],
+        item['public_url'],
+        item['r2_url'],
+        item['r2Url'],
+        item['thumbnailUrl'],
+        item['thumbnail_url'],
+      ]);
+      if (url.isNotEmpty) return url;
+    }
+    return '';
+  }
+
+  /// Saves a generated style look into Planner -> Boards.
+  ///
+  /// Backend endpoint: POST /api/boards/save
+  /// Backend creates/updates the Appwrite `saved_boards` document and uploads
+  /// `imageBase64` to the R2 `style-boards` bucket when it is provided.
+  Future<Map<String, dynamic>?> saveBoard({
+    String? userId,
+    String title = 'Style Board',
+    String occasion = 'Occasion',
+    String description = '',
+    String? imageUrl,
+    String? imageBase64,
+    List<String> itemIds = const [],
+    List<Map<String, dynamic>> items = const [],
+    Map<String, dynamic>? payload,
+  }) async {
+    try {
+      final authedUserId = (userId != null && userId.trim().isNotEmpty)
+          ? userId.trim()
+          : await _currentUserId();
+
+      final resolvedItemIds = itemIds
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+      if (resolvedItemIds.isEmpty && items.isNotEmpty) {
+        resolvedItemIds.addAll(_extractItemIds(items));
+      }
+
+      final resolvedImageUrl = _firstNonEmptyString([
+        imageUrl,
+        _extractImageUrlFromItems(items),
+      ]);
+
+      final cleanPayload = <String, dynamic>{
+        ...?payload,
+        if (items.isNotEmpty) 'items': items,
+        if (resolvedItemIds.isNotEmpty) 'itemIds': resolvedItemIds,
+      };
+
+      final body = <String, dynamic>{
+        'user_id': authedUserId,
+        'title': title.trim().isNotEmpty ? title.trim() : 'Style Board',
+        'occasion': occasion.trim().isNotEmpty ? occasion.trim() : 'Occasion',
+        'description': description,
+        'image_url': resolvedImageUrl,
+        'board_ids': resolvedItemIds.join(','),
+        'payload': cleanPayload,
+        if (imageBase64 != null && imageBase64.trim().isNotEmpty)
+          'image_base64': imageBase64.trim(),
+      };
+
+      if ((body['image_url'] as String).isEmpty &&
+          !body.containsKey('image_base64')) {
+        return {
+          'success': false,
+          'error': 'Cannot save board without imageUrl or imageBase64.',
+        };
+      }
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/boards/save'),
+            headers: await _authHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return await compute(_parseJsonMap, response.body);
+      }
+
+      debugPrint('Save board failed: ${response.statusCode} ${response.body}');
+      return {
+        'success': false,
+        'status': response.statusCode,
+        'error': response.body,
+      };
+    } catch (e) {
+      debugPrint('Save board error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Pulls saved style boards for Planner -> Boards.
+  ///
+  /// Backend endpoint: GET /api/boards?user_id=...&occasion=...
+  Future<List<Map<String, dynamic>>> getSavedBoards({
+    String? userId,
+    String? occasion,
+    int limit = 100,
+  }) async {
+    try {
+      final authedUserId = (userId != null && userId.trim().isNotEmpty)
+          ? userId.trim()
+          : await _currentUserId();
+
+      final params = <String, String>{
+        'user_id': authedUserId,
+        'limit': limit.toString(),
+        if (occasion != null && occasion.trim().isNotEmpty)
+          'occasion': occasion.trim(),
+      };
+
+      final uri = Uri.parse(
+        '$baseUrl/api/boards',
+      ).replace(queryParameters: params);
+
+      final response = await http
+          .get(uri, headers: await _authHeaders())
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data = await compute(_parseJsonMap, response.body);
+        final raw = data['documents'] ??
+            data['boards'] ??
+            data['items'] ??
+            data['data'] ??
+            const [];
+        return List<Map<String, dynamic>>.from(raw as List? ?? const []);
+      }
+
+      debugPrint(
+        'Saved boards load failed: ${response.statusCode} ${response.body}',
+      );
+      return <Map<String, dynamic>>[];
+    } catch (e) {
+      debugPrint('Saved boards load error: $e');
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBoards({
+    String? userId,
+    String? occasion,
+    int limit = 100,
+  }) {
+    return getSavedBoards(
+      userId: userId,
+      occasion: occasion,
+      limit: limit,
+    );
+  }
+
+  Future<bool> deleteSavedBoard(String documentId) async {
+    final id = documentId.trim();
+    if (id.isEmpty) return false;
+
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/api/boards/$id'),
+            headers: await _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      debugPrint('Saved board delete error: $e');
+      return false;
+    }
+  }
 
   // Calendar events persisted through AHVI backend/Appwrite.
   Future<List<Map<String, dynamic>>> getCalendarEvents({
@@ -385,7 +594,9 @@ class BackendService {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = await compute(_parseJsonMap, response.body);
-        return List<Map<String, dynamic>>.from(data['events'] as List? ?? const []);
+        return List<Map<String, dynamic>>.from(
+          data['events'] as List? ?? const [],
+        );
       }
 
       debugPrint(
@@ -417,7 +628,9 @@ class BackendService {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = await compute(_parseJsonMap, response.body);
-        return List<Map<String, dynamic>>.from(data['events'] as List? ?? const []);
+        return List<Map<String, dynamic>>.from(
+          data['events'] as List? ?? const [],
+        );
       }
 
       debugPrint(
