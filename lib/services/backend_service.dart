@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:myapp/config/env.dart';
@@ -30,9 +31,15 @@ String _demoChatFallback(String query, String moduleContext) {
 class BackendService {
   final String baseUrl = Env.backendApiUrl;
   final AppwriteService _appwriteService;
+  final bool _allowLocalChatFallback;
 
   BackendService({AppwriteService? appwriteService})
-    : _appwriteService = appwriteService ?? AppwriteService();
+    : _appwriteService = appwriteService ?? AppwriteService(),
+      _allowLocalChatFallback =
+          (dotenv.env['AHVI_ENABLE_DEMO_FALLBACK'] ?? 'true')
+              .trim()
+              .toLowerCase() ==
+          'true';
 
   Future<String> _currentUserId() async {
     final user = await _appwriteService.getCurrentUser();
@@ -203,6 +210,9 @@ class BackendService {
       );
     } catch (e) {
       debugPrint('Backend Error: $e');
+      if (!_allowLocalChatFallback) {
+        rethrow;
+      }
       final fallback = _demoChatFallback(query, moduleContext);
       return {
         'error': 'Backend fallback: $e',
