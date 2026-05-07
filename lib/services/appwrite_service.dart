@@ -168,10 +168,12 @@ class AppwriteService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await clearCachedUserIdentity();
     try {
       await AhviNotificationService.instance.unregisterForCurrentUser(this);
       await account.deleteSession(sessionId: 'current');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      await clearCachedUserIdentity();
       clearUserCache();
       notifyListeners();
     } catch (e) {

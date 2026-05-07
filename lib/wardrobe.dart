@@ -296,6 +296,9 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   @override
   void initState() {
     super.initState();
+    _wardrobe.clear();
+    _currentUserId = null;
+    _loadedCache = false;
     _loadCachedWardrobe();
     _fetchWardrobeItems();
   }
@@ -431,6 +434,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
         databaseId: Env.appwriteDatabaseId,
         collectionId: Env.outfitsCollection,
         queries: [
+          // Keep wardrobe reads scoped to the signed-in user only.
           Query.equal('userId', user.$id),
           Query.orderDesc('\$createdAt'),
           Query.limit(100),
@@ -1575,6 +1579,11 @@ class _DetectedItem {
     }
   }
 
+  bool get isDuplicate =>
+      raw['duplicate'] is Map &&
+      Map<String, dynamic>.from(raw['duplicate'] as Map)['is_duplicate'] ==
+          true;
+
   Map<String, dynamic> toBackendPayload() {
     final payload = Map<String, dynamic>.from(raw);
     payload.addAll({
@@ -2073,6 +2082,11 @@ class _AddItemModalState extends State<_AddItemModal>
       return;
     }
     HapticFeedback.lightImpact();
+    final duplicateItems = selected.where((item) => item.isDuplicate).toList();
+    if (duplicateItems.isNotEmpty) {
+      final shouldContinue = await _confirmDuplicateSave(duplicateItems);
+      if (shouldContinue != true) return;
+    }
     final payloads = selected.map((item) => item.toBackendPayload()).toList();
     final saveResult = await Provider.of<BackendService>(
       context,
@@ -2104,6 +2118,34 @@ class _AddItemModalState extends State<_AddItemModal>
         'remoteSaved': true,
       });
     }
+  }
+
+  Future<bool?> _confirmDuplicateSave(List<_DetectedItem> duplicateItems) {
+    final names = duplicateItems
+        .map((item) => _cleanUiText(item.name, fallback: 'Item'))
+        .where((name) => name.isNotEmpty)
+        .toList();
+    final itemSummary = names.isEmpty ? 'this item' : names.join(', ');
+
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Duplicate Detected'),
+        content: Text(
+          'It looks like you already have $itemSummary in your wardrobe. Do you still want to save ${duplicateItems.length == 1 ? 'it' : 'them'}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Save Anyway'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _manualSave() {
