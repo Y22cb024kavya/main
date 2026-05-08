@@ -123,143 +123,9 @@ bool _hasAnyCategoryToken(List<String> tokens, List<String> words) {
   return words.any(tokens.contains);
 }
 
-String _cleanCategory(Object? value, {String fallback = 'Tops'}) {
+String _cleanCategory(Object? value, {String fallback = 'Uncategorized'}) {
   final raw = _cleanUiText(value, fallback: fallback);
-  const allowed = {
-    'All',
-    'Tops',
-    'Bottoms',
-    'Outerwear',
-    'Footwear',
-    'Dresses',
-    'Accessories',
-    'Bags',
-    'Jewelry',
-    'Makeup',
-    'Skincare',
-    'Indian Wear',
-  };
-
-  if (allowed.contains(raw)) {
-    if (raw == 'Bags' || raw == 'Jewelry') return 'Accessories';
-    return raw;
-  }
-
-  final tokens = _categoryTokens(raw);
-
-  // Tops first: "Short-Sleeved Shirt" must be Tops.
-  if (_hasAnyCategoryToken(tokens, [
-    'shirt',
-    'shirts',
-    'tee',
-    'tshirt',
-    'tshirts',
-    'top',
-    'tops',
-    'blouse',
-    'blouses',
-    'hoodie',
-    'hoodies',
-    'sweater',
-    'sweaters',
-    'kurta',
-    'kurtas',
-    'polo',
-    'polos',
-  ])) {
-    return 'Tops';
-  }
-
-  // Only "shorts", never "short".
-  if (_hasAnyCategoryToken(tokens, [
-    'pants',
-    'pant',
-    'trousers',
-    'trouser',
-    'jeans',
-    'jean',
-    'shorts',
-    'skirt',
-    'skirts',
-    'legging',
-    'leggings',
-    'chino',
-    'chinos',
-  ])) {
-    return 'Bottoms';
-  }
-
-  if (_hasAnyCategoryToken(tokens, [
-    'shoe',
-    'shoes',
-    'boot',
-    'boots',
-    'sneaker',
-    'sneakers',
-    'heel',
-    'heels',
-    'sandal',
-    'sandals',
-    'loafer',
-    'loafers',
-    'slipper',
-    'slippers',
-  ])) {
-    return 'Footwear';
-  }
-
-  if (_hasAnyCategoryToken(tokens, [
-    'watch',
-    'watches',
-    'bag',
-    'bags',
-    'belt',
-    'belts',
-    'scarf',
-    'scarves',
-    'jewelry',
-    'jewellery',
-    'jewel',
-    'ring',
-    'rings',
-    'necklace',
-    'bracelet',
-    'earring',
-    'earrings',
-    'accessory',
-    'accessories',
-    'hat',
-    'cap',
-    'sunglass',
-    'sunglasses',
-  ])) {
-    return 'Accessories';
-  }
-
-  if (_hasAnyCategoryToken(tokens, [
-    'jacket',
-    'coat',
-    'blazer',
-    'outerwear',
-    'cardigan',
-    'overshirt',
-  ])) {
-    return 'Outerwear';
-  }
-
-  if (_hasAnyCategoryToken(tokens, [
-    'dress',
-    'dresses',
-    'gown',
-    'jumpsuit',
-    'saree',
-    'lehenga',
-    'sherwani',
-  ])) {
-    return 'Dresses';
-  }
-
-  return fallback;
+  return raw.isEmpty ? fallback : raw;
 }
 
 List<String> _cleanStringList(Object? value) {
@@ -1000,7 +866,11 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
               onSearch: (q) => setState(() => _searchQuery = q),
             ),
             if (_activeTab == 0)
-              _FilterBar(activeCat: _activeCat, onCatTap: _setCat),
+              _FilterBar(
+                activeCat: _activeCat,
+                onCatTap: _setCat,
+                wardrobe: _wardrobe,
+              ),
             Expanded(
               child: _isLoading
                   ? Center(
@@ -1605,58 +1475,6 @@ class _DetectedItem {
     return payload;
   }
 
-  static String mapCategory(String raw) {
-    final s = raw.toLowerCase();
-    if (s.contains('top') ||
-        s.contains('shirt') ||
-        s.contains('blouse') ||
-        s.contains('tee') ||
-        s.contains('sweater') ||
-        s.contains('hoodie')) {
-      return 'Tops';
-    }
-    if (s.contains('pant') ||
-        s.contains('trouser') ||
-        s.contains('jean') ||
-        s.contains('short') ||
-        s.contains('skirt')) {
-      return 'Bottoms';
-    }
-    if (s.contains('jacket') ||
-        s.contains('coat') ||
-        s.contains('blazer') ||
-        s.contains('outer') ||
-        s.contains('cardigan')) {
-      return 'Outerwear';
-    }
-    if (s.contains('shoe') ||
-        s.contains('boot') ||
-        s.contains('sneaker') ||
-        s.contains('sandal') ||
-        s.contains('heel')) {
-      return 'Footwear';
-    }
-    if (s.contains('dress') || s.contains('gown') || s.contains('jumpsuit'))
-      return 'Dresses';
-    if (s.contains('bag') ||
-        s.contains('purse') ||
-        s.contains('clutch') ||
-        s.contains('backpack')) {
-      return 'Bags';
-    }
-    if (s.contains('jewelry') ||
-        s.contains('necklace') ||
-        s.contains('ring') ||
-        s.contains('bracelet') ||
-        s.contains('earring') ||
-        s.contains('watch')) {
-      return 'Jewelry';
-    }
-    if (s.contains('makeup') || s.contains('lipstick')) return 'Makeup';
-    if (s.contains('skincare') || s.contains('moisturizer')) return 'Skincare';
-    return 'Accessories';
-  }
-
   static String catEmoji(String cat) =>
       const {
         'Tops': 'TOP',
@@ -1710,27 +1528,13 @@ class _AddItemModalState extends State<_AddItemModal>
 
   // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ Edit form ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
   final _nameCtrl = TextEditingController();
+  final _catCtrl = TextEditingController();
   final _subCategoryCtrl = TextEditingController();
   final _colorCtrl = TextEditingController();
   final _patternCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  String _selectedCat = '';
   final List<String> _selectedOccs = [];
   int? _editingIndex;
-
-  static const _cats = [
-    'Tops',
-    'Bottoms',
-    'Outerwear',
-    'Footwear',
-    'Dresses',
-    'Indian Wear',
-    'Accessories',
-    'Bags',
-    'Jewelry',
-    'Makeup',
-    'Skincare',
-  ];
   static const _occs = ['Casual', 'Work', 'Dinner', 'Sport', 'Travel'];
 
   AppThemeTokens get t => context.themeTokens;
@@ -1894,13 +1698,9 @@ class _AddItemModalState extends State<_AddItemModal>
             data['id']?.toString() ??
             UniqueKey().toString(),
         name: data['name']?.toString() ?? 'Unknown',
-        category: _DetectedItem.mapCategory(
-          [
-            data['name'],
-            data['category'],
-            data['sub_category'],
-            data['label'],
-          ].where((v) => v != null).join(' '),
+        category: _cleanCategory(
+          data['category'],
+          fallback: 'Uncategorized',
         ),
         subCategory: data['sub_category']?.toString() ?? '',
         color: data['color_name']?.toString() ?? data['color']?.toString(),
@@ -2038,11 +1838,11 @@ class _AddItemModalState extends State<_AddItemModal>
   void _editItem(int index) {
     final item = _detected[index];
     _nameCtrl.text = item.name;
+    _catCtrl.text = item.category;
     _subCategoryCtrl.text = item.subCategory;
     _colorCtrl.text = item.color ?? '';
     _patternCtrl.text = item.pattern ?? '';
     _notesCtrl.text = '';
-    _selectedCat = item.category;
     _selectedOccs
       ..clear()
       ..addAll(item.occasions);
@@ -2053,14 +1853,15 @@ class _AddItemModalState extends State<_AddItemModal>
   }
 
   void _saveEditedItem() {
-    if (_nameCtrl.text.trim().isEmpty || _selectedCat.isEmpty) {
+    final nextCategory = _catCtrl.text.trim();
+    if (_nameCtrl.text.trim().isEmpty || nextCategory.isEmpty) {
       _toast('Name and category are required');
       return;
     }
     if (_editingIndex != null) {
       setState(() {
         _detected[_editingIndex!].name = _nameCtrl.text.trim();
-        _detected[_editingIndex!].category = _selectedCat;
+        _detected[_editingIndex!].category = nextCategory;
         _detected[_editingIndex!].subCategory = _subCategoryCtrl.text.trim();
         _detected[_editingIndex!].color = _colorCtrl.text.trim();
         _detected[_editingIndex!].pattern = _patternCtrl.text.trim();
@@ -2149,7 +1950,8 @@ class _AddItemModalState extends State<_AddItemModal>
   }
 
   void _manualSave() {
-    if (_nameCtrl.text.trim().isEmpty || _selectedCat.isEmpty) {
+    final nextCategory = _catCtrl.text.trim();
+    if (_nameCtrl.text.trim().isEmpty || nextCategory.isEmpty) {
       _toast('Name and category are required');
       return;
     }
@@ -2157,7 +1959,7 @@ class _AddItemModalState extends State<_AddItemModal>
     widget.onSave({
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'name': _nameCtrl.text.trim(),
-      'cat': _selectedCat,
+      'cat': nextCategory,
       'occasions': List<String>.from(_selectedOccs),
       'notes': _notesCtrl.text.trim(),
       'imageBytes': _capturedBytes,
@@ -2193,6 +1995,7 @@ class _AddItemModalState extends State<_AddItemModal>
     _slideCtrl.dispose();
     _camCtrl?.dispose();
     _nameCtrl.dispose();
+    _catCtrl.dispose();
     _subCategoryCtrl.dispose();
     _colorCtrl.dispose();
     _patternCtrl.dispose();
@@ -3296,10 +3099,9 @@ class _AddItemModalState extends State<_AddItemModal>
                     context,
                     'wardrobe_category_required',
                   ),
-                  child: _CategoryDropdown(
-                    value: _selectedCat,
-                    categories: _cats,
-                    onChanged: (v) => setState(() => _selectedCat = v ?? ''),
+                  child: _StyledInput(
+                    controller: _catCtrl,
+                    hint: 'e.g. Vintage Bags',
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -3815,53 +3617,6 @@ class _StyledInput extends StatelessWidget {
   }
 }
 
-class _CategoryDropdown extends StatelessWidget {
-  final String value;
-  final List<String> categories;
-  final ValueChanged<String?> onChanged;
-  const _CategoryDropdown({
-    required this.value,
-    required this.categories,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.themeTokens;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: t.panel,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: t.cardBorder, width: 1.5),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value.isEmpty ? null : value,
-          hint: Text(
-            AppLocalizations.t(context, 'wardrobe_select_hint'),
-            style: TextStyle(
-              color: t.mutedText,
-              fontFamily: GoogleFonts.inter().fontFamily,
-            ),
-          ),
-          isExpanded: true,
-          dropdownColor: t.backgroundSecondary,
-          style: TextStyle(
-            fontFamily: GoogleFonts.inter().fontFamily,
-            fontSize: 14,
-            color: t.textPrimary,
-          ),
-          items: categories
-              .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-}
-
 // ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ APP HEADER ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬
 class _AppHeader extends StatelessWidget {
   final String title;
@@ -4041,160 +3796,66 @@ class _HoverScaleButtonState extends State<_HoverScaleButton> {
 class _FilterBar extends StatelessWidget {
   final String activeCat;
   final ValueChanged<String> onCatTap;
-  const _FilterBar({required this.activeCat, required this.onCatTap});
+  final List<WardrobeItem> wardrobe;
+  const _FilterBar({
+    required this.activeCat,
+    required this.onCatTap,
+    required this.wardrobe,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = context.themeTokens;
-    final accent4 = _accent4(t);
-    final accent5 = _accent5(t);
-    final bags = _bagsChip(t);
-    final jewelry = _jewelryChip(t);
-    final makeup = _makeupChip(t);
-    final skincare = _skincareChip(t);
-
-    final chips = [
-      _ChipData(
-        label: AppLocalizations.t(context, 'wardrobe_all'),
-        icon: Icons.grid_view_rounded,
-        activeGradient: LinearGradient(
-          colors: [t.accent.primary, t.accent.secondary],
-        ),
-        activeBorder: t.accent.primary,
-        activeShadow: t.accent.primary.withValues(alpha: 0.35),
-        inactiveBg: t.panel,
-        inactiveBorder: t.cardBorder,
-        inactiveText: t.mutedText,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_tops'),
-        icon: Icons.checkroom_outlined,
-        activeBg: t.accent.primary.withValues(alpha: 0.28),
-        activeBorder: t.accent.primary,
-        activeShadow: t.accent.primary.withValues(alpha: 0.25),
-        inactiveBg: t.accent.primary.withValues(alpha: 0.12),
-        inactiveBorder: t.accent.primary.withValues(alpha: 0.30),
-        inactiveText: t.accent.primary,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_bottoms'),
-        icon: Icons.format_align_justify,
-        activeBg: t.accent.secondary.withValues(alpha: 0.28),
-        activeBorder: t.accent.secondary,
-        activeShadow: t.accent.secondary.withValues(alpha: 0.25),
-        inactiveBg: t.accent.secondary.withValues(alpha: 0.12),
-        inactiveBorder: t.accent.secondary.withValues(alpha: 0.30),
-        inactiveText: t.accent.secondary,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_outerwear'),
-        icon: Icons.umbrella_outlined,
-        activeBg: t.accent.tertiary.withValues(alpha: 0.22),
-        activeBorder: t.accent.tertiary,
-        activeShadow: t.accent.tertiary.withValues(alpha: 0.20),
-        inactiveBg: t.accent.tertiary.withValues(alpha: 0.10),
-        inactiveBorder: t.accent.tertiary.withValues(alpha: 0.30),
-        inactiveText: t.accent.tertiary,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_footwear'),
-        icon: Icons.directions_walk,
-        activeBg: accent5.withValues(alpha: 0.22),
-        activeBorder: accent5,
-        activeShadow: accent5.withValues(alpha: 0.20),
-        inactiveBg: accent5.withValues(alpha: 0.10),
-        inactiveBorder: accent5.withValues(alpha: 0.30),
-        inactiveText: accent5,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_dresses'),
-        icon: Icons.dry_cleaning_outlined,
-        activeBg: accent4.withValues(alpha: 0.22),
-        activeBorder: accent4,
-        activeShadow: accent4.withValues(alpha: 0.20),
-        inactiveBg: accent4.withValues(alpha: 0.10),
-        inactiveBorder: accent4.withValues(alpha: 0.30),
-        inactiveText: accent4,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_accessories'),
-        icon: Icons.watch_outlined,
-        activeBg: t.accent.secondary.withValues(alpha: 0.24),
-        activeBorder: t.accent.secondary,
-        activeShadow: t.accent.secondary.withValues(alpha: 0.20),
-        inactiveBg: t.accent.secondary.withValues(alpha: 0.10),
-        inactiveBorder: t.accent.secondary.withValues(alpha: 0.28),
-        inactiveText: t.accent.secondary,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_bags'),
-        icon: Icons.shopping_bag_outlined,
-        activeBg: bags.withValues(alpha: 0.22),
-        activeBorder: bags,
-        activeShadow: bags.withValues(alpha: 0.25),
-        inactiveBg: bags.withValues(alpha: 0.12),
-        inactiveBorder: bags.withValues(alpha: 0.30),
-        inactiveText: bags,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_jewelry'),
-        icon: Icons.diamond_outlined,
-        activeBg: jewelry.withValues(alpha: 0.22),
-        activeBorder: jewelry,
-        activeShadow: jewelry.withValues(alpha: 0.25),
-        inactiveBg: jewelry.withValues(alpha: 0.12),
-        inactiveBorder: jewelry.withValues(alpha: 0.30),
-        inactiveText: jewelry,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_makeup'),
-        icon: Icons.face_retouching_natural,
-        activeBg: makeup.withValues(alpha: 0.22),
-        activeBorder: makeup,
-        activeShadow: makeup.withValues(alpha: 0.25),
-        inactiveBg: makeup.withValues(alpha: 0.12),
-        inactiveBorder: makeup.withValues(alpha: 0.30),
-        inactiveText: makeup,
-        activeText: t.textPrimary,
-      ),
-      _ChipData(
-        label: AppLocalizations.t(context, 'cat_skincare'),
-        icon: Icons.spa_outlined,
-        activeBg: skincare.withValues(alpha: 0.22),
-        activeBorder: skincare,
-        activeShadow: skincare.withValues(alpha: 0.25),
-        inactiveBg: skincare.withValues(alpha: 0.12),
-        inactiveBorder: skincare.withValues(alpha: 0.30),
-        inactiveText: skincare,
-        activeText: t.textPrimary,
-      ),
-    ];
+    final uniqueCats = <String>{};
+    for (final item in wardrobe) {
+      final category = _cleanCategory(item.cat, fallback: '');
+      if (category.isNotEmpty) uniqueCats.add(category);
+    }
+    final catList = uniqueCats.toList()..sort();
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
-        children: List.generate(chips.length, (i) {
-          final chip = chips[i];
-          final isActive = activeCat == chip.label;
-          return Padding(
-            padding: EdgeInsets.only(right: i < chips.length - 1 ? 8 : 0),
-            child: _FilterChip(
-              chip: chip,
-              isActive: isActive,
-              onTap: () => onCatTap(chip.label),
+        children: [
+          _buildChip(context, 'All', activeCat == 'All', t),
+          const SizedBox(width: 8),
+          ...catList.map(
+            (cat) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _buildChip(context, cat, activeCat == cat, t),
             ),
-          );
-        }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChip(
+    BuildContext context,
+    String label,
+    bool isActive,
+    AppThemeTokens t,
+  ) {
+    return GestureDetector(
+      onTap: () => onCatTap(label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? t.accent.primary : t.panel,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? t.accent.primary : t.cardBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? t.textPrimary : t.mutedText,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

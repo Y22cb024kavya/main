@@ -209,6 +209,23 @@ class AppwriteService extends ChangeNotifier {
     }
   }
 
+  Future<void> updateWardrobeItemCategory(
+    String documentId,
+    String newCategory,
+  ) async {
+    try {
+      await databases.updateDocument(
+        databaseId: Env.appwriteDatabaseId,
+        collectionId: Env.outfitsCollection,
+        documentId: documentId,
+        data: {'category': newCategory},
+      );
+    } catch (e) {
+      debugPrint("Error updating item category: $e");
+      rethrow;
+    }
+  }
+
   // =========================================================================
 
   bool _userProfileSyncInFlight = false;
